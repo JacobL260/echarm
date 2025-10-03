@@ -25,7 +25,7 @@ double input = 0;      // Current angle
 double output = 0;     // PID output (stepper speed in steps/sec)
 
 // PID tuning parameters
-double Kp = 10, Ki = 0.5, Kd = 0.0;
+double Kp = 10, Ki = 1, Kd = 0.0;
 
 // Create PID controller
 PID myPID(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
@@ -57,15 +57,15 @@ void setup() {
 
 void loop() {
   // === Read Potentiometer and Convert to Angle ===
-  int raw = analogRead(potPin); // Reaad the analog value from the pot
-  float potAngle = (raw / float(potMaxRaw)) * maxPotAngle; // Convert the analog to degrees from the pt
-  float actuatorAngle = potAngle * direction_ratio; // Convert the pot angle to actuator angle
+  int raw = analogRead(potPin);
+  float potAngle = (raw / float(potMaxRaw)) * maxPotAngle;
+  float angle = potAngle * direction_ratio;
 
-  if (actuatorAngle < 0) {
-    actuatorAngle += maxPotAngle * abs(direction_ratio);
+  if (angle < 0) {
+    angle += maxPotAngle * abs(direction_ratio);
   }
 
-  input = actuatorAngle;
+  input = angle;
 
   // === PID Control ===
   myPID.Compute();
@@ -92,7 +92,7 @@ void loop() {
 
   // === Debug Output ===
   Serial.print("raw: "); Serial.print(raw);
-  Serial.print(" |in: "); Serial.print(input, 1);
-  Serial.print(" |set: "); Serial.print(setpoint, 1);
-  Serial.print(" |out: "); Serial.println(output, 1);
+  Serial.print(" | input: "); Serial.print(input, 1);
+  Serial.print(" | setpoint: "); Serial.print(setpoint, 1);
+  Serial.print(" | output: "); Serial.println(output, 1);
 }
