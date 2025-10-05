@@ -20,13 +20,13 @@ const float maxPotAngle = 270.0;
 const int potMaxRaw = 1023;
 
 // PID variables
-double serialCommand = 100;
+double serialCommand = 120;
 double setpoint = 0;   // Target angle in degrees (0–270)
 double input = 0;      // Current angle
 double output = 0;     // PID output (stepper speed in steps/sec)
 
 // PID tuning parameters
-double Kp = 68, Ki = 0, Kd = 5;
+double Kp = 55, Ki = 0.1, Kd = 1;
 
 // Create PID controller
 // DIRECT is if MOTOR and ACTUATOR spin clockwise, REVERSED is Vise versea
@@ -70,9 +70,9 @@ void loop() {
   if (millis() - lastDebugTime >= 100) {
     lastDebugTime = millis();
     //Serial.print("raw:"); Serial.print(raw);
-    //Serial.print(" potangle:"); Serial.print(potAngle, 0);
-    //Serial.print(" actuatorangle:"); Serial.print(input, 0);
-    //Serial.print(" set:"); Serial.print(setpoint, 0);
-    //Serial.print(" out:"); Serial.println(output, 0);
+    Serial.print(" potangle:"); Serial.print(potAngle, 0);
+    Serial.print(" actuatorangle:"); Serial.print(input, 0);
+    Serial.print(" set:"); Serial.print(setpoint, 0);
+    Serial.print(" out:"); Serial.println(output, 0);
   }
 }
