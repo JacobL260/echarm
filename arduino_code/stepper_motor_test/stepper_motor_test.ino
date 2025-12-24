@@ -1,98 +1,45 @@
 #include <AccelStepper.h>
-#include <PID_v1_bc.h>
 
 // === CONFIGURATION ===
+const int stepPin = 8;  // Step pin for motor
+const int dirPin = 9;   // Direction pin for motor
 
-// Pins
-const int potPin = A0;       // Analog pin connected to potentiometer
-const int stepPin = 8;       // Step pin for motor speed
-const int dirPin = 9;        // Direction control pin
+const float motorSpeed = 500.0;  // Speed in steps/second
+const float motorAcceleration = 500.0;
 
-// === Actuator Configuration ===
-const float maxMotorSpeed = 1000.0;
-const float maxMotorAcceration = 500.0;
-
-// === Stepper Setup (DRIVER mode) ===
 AccelStepper stepper(AccelStepper::DRIVER, stepPin, dirPin);
 
-// Constants
-const float maxPotAngle = 270.0;
-const int potMaxRaw = 1023;
-
-// PID variables
-double setpoint = 0;   // Target angle in degrees (0–270)
-double input = 0;      // Current angle
-double output = 0;     // PID output (stepper speed in steps/sec)
-
-// PID tuning parameters
-double Kp = 10, Ki = 0.5, Kd = 0.0;
-
-// Create PID controller
-PID myPID(&input, &output, &setpoint, Kp, Ki, Kd, REVERSE);
-
-// Direction multiplier (for gear or pulley)
-float direction_ratio = -1.0;  // Set to -1.0 if direction inverted
-
-// === Setpoint Change Logic ===
-const float positionThreshold = 2.0;           // Acceptable error in degrees
-const unsigned long holdTimeRequired = 2000;   // Time to hold position before changing (ms)
-unsigned long positionHoldStart = 0;           // When did we enter the "holding" state?
-bool holding = false;
+// Timing variables
+unsigned long previousMillis = 0;
+const unsigned long interval = 10000; // 10 seconds
+bool direction = true; // true = one direction, false = the other
 
 void setup() {
   Serial.begin(115200);
 
-  stepper.setMaxSpeed(maxMotorSpeed);
-  stepper.setAcceleration(maxMotorAcceration);
+  stepper.setMaxSpeed(motorSpeed);
+  stepper.setAcceleration(motorAcceleration);
 
-  myPID.SetMode(AUTOMATIC);
-  myPID.SetOutputLimits(-maxMotorSpeed, maxMotorSpeed);
-
-  // Random seed from unconnected analog pin (or from pot noise)
-  randomSeed(analogRead(potPin));
-
-  // Initialize with random setpoint
-  setpoint = random(10, 261);
+  // Set initial direction
+  stepper.setSpeed(motorSpeed);  // Positive direction
 }
 
 void loop() {
-  // === Read Potentiometer and Convert to Angle ===
-  int raw = analogRead(potPin); // Reaad the analog value from the pot
-  float potAngle = (raw / float(potMaxRaw)) * maxPotAngle; // Convert the analog to degrees from the pt
-  float actuatorAngle = potAngle * direction_ratio; // Convert the pot angle to actuator angle
+  unsigned long currentMillis = millis();
 
-  if (actuatorAngle < 0) {
-    actuatorAngle += maxPotAngle * abs(direction_ratio);
-  }
+  // Switch direction every 10 seconds
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    direction = !direction;
 
-  input = actuatorAngle;
-
-  // === PID Control ===
-  myPID.Compute();
-  stepper.setSpeed(output);
-  stepper.runSpeed();
-
-  // === Check if setpoint is reached and held ===
-  float error = abs(setpoint - input);
-
-  if (error <= positionThreshold) {
-    if (!holding) {
-      holding = true;
-      positionHoldStart = millis();
+    // Change direction
+    if (direction) {
+      stepper.setSpeed(motorSpeed);  // Positive
     } else {
-      if (millis() - positionHoldStart >= holdTimeRequired) {
-        // Pick a new random setpoint between 10 and 260 degrees
-        setpoint = random(10, 261);
-        holding = false;
-      }
+      stepper.setSpeed(-motorSpeed); // Negative
     }
-  } else {
-    holding = false;  // Reset if we're outside the threshold
   }
 
-  // === Debug Output ===
-  Serial.print("raw: "); Serial.print(raw);
-  Serial.print(" |in: "); Serial.print(input, 1);
-  Serial.print(" |set: "); Serial.print(setpoint, 1);
-  Serial.print(" |out: "); Serial.println(output, 1);
+  // Keep motor running at set speed
+  stepper.runSpeed();
 }
