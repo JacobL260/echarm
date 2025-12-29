@@ -29,7 +29,6 @@ ADC_HZ = 200
 CTRL_HZ = 50
 
 # INDIVIDUAL AXES PARAMTERS
-ACT_TO_MOTOR_RATIO = [180, 180, 200, 160, 160, 160]  # needs validated
 POT_ZERO_OFFSETS = [0.0] * NUM_AXES
 ACT_SOFT_LIMITS = [
     {"min": -60, "max": 60},
@@ -41,10 +40,10 @@ ACT_SOFT_LIMITS = [
 ] # based off mechanical design, needs validated
 
 # Different potiometer setups require different direction signs, geared makes negative and belts makes positive
-POT_DIRECTION_SIGN = [-1, -1, -1, -1, -1, -1]  # based off mechanical design, needs validated
+ACT_TO_POT_RATIO = [-13, -13, -13, -13, -13, -13] # based off mechanical design, needs validated
 
 # Some actuators need to have their stepper direction inverted based off mechanical gearings
-ACT_DIRECTION_SIGN = [1, -1, -1, -1, -1, -1]  # based off mechanical design, needs validated
+ACT_TO_MOTOR_RATIO = [180, -180, -180, -180, -180, -180]  # based off mechanical design, needs validated
 
 PID_PARAMS = [
     {"kp": 0.6, "ki": 0.05, "kd": 0.0},
@@ -233,9 +232,9 @@ class Actuator(threading.Thread):
         while not stop_event.is_set():
             with adc_lock:
                 v = adc_volt[self.idx]
-            fb_deg = (v / VREF) * POT_MAX_DEG * POT_DIRECTION_SIGN[self.idx] # Position of actuator in degrees NEEDS TO INCORPORATE OFFSETS
+            fb_deg = (v / VREF) * POT_MAX_DEG * ACT_TO_POT_RATIO[self.idx] # Position of actuator in degrees NEEDS TO INCORPORATE OFFSETS
             pid_velocity = self.pid.compute(self.cmd_deg, fb_deg) # PID output in actuator degrees per second
-            self.stepper.set_velocity(pid_velocity  * ACT_TO_MOTOR_RATIO[self.idx] * ACT_DIRECTION_SIGN[self.idx]) # Stepper velocity in steps per second
+            self.stepper.set_velocity(pid_velocity  * ACT_TO_MOTOR_RATIO[self.idx] * ACT_TO_MOTOR_RATIO[self.idx]) # Stepper velocity in steps per second
             time.sleep(self.dt)
 
     def stop(self):
@@ -254,7 +253,6 @@ def main():
     for i, a in enumerate(acts):
         a.set_command(INIT_COMMANDS[i] if i < len(INIT_COMMANDS) else 0.0)
 
-    t0 = time.time()
     last_print = 0.0
     try:
         print("Press CTRL+C to exit")

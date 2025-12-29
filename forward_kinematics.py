@@ -9,7 +9,8 @@ import math
 # theta is joint angle (rotation about z)
 DH_PARAMS = [
     [0, math.radians(-90), 0, 100],  # Joint 1
-    [500,   0,    0, 0],    # Joint 2
+    [40, 0, 0, 0],    # Joint 2
+    [100, 0, 0, 0],
 ]
 
 def dh_transform(a, alpha, d, theta):
@@ -37,7 +38,7 @@ def forward_kinematics(joint_angles):
     return T
 
 # Example joint angles
-q = [0, math.radians(90)]
+q = [0, math.radians(90), math.radians(90)]
 T_ee = np.round(forward_kinematics(q), 3)  # rounded for readability
 
 print("End-effector pose:\n", T_ee)
