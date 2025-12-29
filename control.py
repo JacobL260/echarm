@@ -37,6 +37,8 @@ class Actuator(threading.Thread):
     def set_command(self, deg):
         lim = ACT_SOFT_LIMITS[self.idx]
         self.cmd_deg = max(lim["min"], min(lim["max"], deg))
+        if deg > lim["max"] or deg < lim["min"]:
+            print(f"Actuator {self.idx} command {deg}° out of limits, modified to {self.cmd_deg}°")
 
     def run(self):
         while not stop_event.is_set():

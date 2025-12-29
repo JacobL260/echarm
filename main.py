@@ -1,4 +1,3 @@
-# main.py
 import time
 
 from hardware import ADCReader, stop_event, adc_volt, adc_lock
@@ -14,8 +13,8 @@ def main():
     for a in acts:
         a.start()
 
-    last_print = 0.0
     try:
+        print("Starting main loop. Press Ctrl+C to exit.")
         while True:
             with adc_lock:
                 volts = adc_volt.copy()
