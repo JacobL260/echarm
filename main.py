@@ -40,11 +40,10 @@ ACT_SOFT_LIMITS = [
 ] # based off mechanical design, needs validated
 
 # Different potiometer setups require different direction signs, geared makes negative and belts makes positive
-ACT_TO_POT_RATIO = [-13, -13, -13, -13, -13, -13] # based off mechanical design, needs validated
+ACT_TO_POT_RATIO = [-1, -1, -1, -39/27, -1, -39/27]
 
 # Some actuators need to have their stepper direction inverted based off mechanical gearings
-ACT_TO_MOTOR_RATIO = [180, -180, -180, -180, -180, -180]  # based off mechanical design, needs validated
-
+ACT_TO_MOTOR_RATIO = [1, -39, -39, -23, -39, -23]
 PID_PARAMS = [
     {"kp": 0.6, "ki": 0.05, "kd": 0.0},
     {"kp": 0.6, "ki": 0.05, "kd": 0.0},
@@ -234,7 +233,7 @@ class Actuator(threading.Thread):
                 v = adc_volt[self.idx]
             fb_deg = (v / VREF) * POT_MAX_DEG * ACT_TO_POT_RATIO[self.idx] # Position of actuator in degrees NEEDS TO INCORPORATE OFFSETS
             pid_velocity = self.pid.compute(self.cmd_deg, fb_deg) # PID output in actuator degrees per second
-            self.stepper.set_velocity(pid_velocity  * ACT_TO_MOTOR_RATIO[self.idx] * ACT_TO_MOTOR_RATIO[self.idx]) # Stepper velocity in steps per second
+            self.stepper.set_velocity(pid_velocity  * ACT_TO_MOTOR_RATIO[self.idx]) # Stepper velocity in steps per second
             time.sleep(self.dt)
 
     def stop(self):
