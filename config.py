@@ -1,3 +1,5 @@
+import math
+
 NUM_AXES = 6
 VREF = 3.3
 POT_MAX_DEG = 270
@@ -39,4 +41,19 @@ STEPPER_PINS = [
     (7, 8),     # Axis 3
     (9, 10),    # Axis 4
     (11, 12),   # Axis 5
+]
+
+# DH parameters: [a, alpha, d, theta]
+# theta will be replaced by joint variables
+# a is link length (x direction)
+# alpha is link twist (x-axis rotation)
+# d is link offset (z direction)
+# theta is joint angle (rotation about z)
+DH_PARAMS = [
+    [0, math.radians(90), 15, 0],
+    [10, 0, 0, 0],
+    [0, math.radians(90), 0, 0],
+    [0, math.radians(-90), 12, 0],
+    [0, math.radians(90), 0, 0],
+    [0, 0, 10, 0]
 ]

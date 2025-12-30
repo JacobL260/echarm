@@ -1,17 +1,7 @@
 import numpy as np
 import math
 
-# DH parameters: [a, alpha, d, theta]
-# theta will be replaced by joint variables
-# a is link length (x direction)
-# alpha is link twist (x-axis rotation)
-# d is link offset (z direction)
-# theta is joint angle (rotation about z)
-DH_PARAMS = [
-    [0, math.radians(-90), 0, 100],  # Joint 1
-    [40, 0, 0, 0],    # Joint 2
-    [100, 0, 0, 0],
-]
+from config import DH_PARAMS
 
 def dh_transform(a, alpha, d, theta):
     """
@@ -38,7 +28,7 @@ def forward_kinematics(joint_angles):
     return T
 
 # Example joint angles
-q = [0, math.radians(90), math.radians(90)]
+q = [0, 0, 0, 0, 0, 0]  # in radians
 T_ee = np.round(forward_kinematics(q), 3)  # rounded for readability
 
 print("End-effector pose:\n", T_ee)
