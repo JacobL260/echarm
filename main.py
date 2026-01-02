@@ -19,15 +19,27 @@ def main():
             with adc_lock:
                 volts = adc_volt.copy()
 
-            positions = [a.fb for a in acts]
-                
+            actautors_state = []
+            for a in acts:
+                actautors_state.append({
+                    "index":a.idx,
+                    "command_deg": a.cmd_deg,
+                    "feedback_deg":a.fb,
+                    "velocity":a.stepper.velocity if hasattr(a.stepper, "velocity") else 0.0
+                })
 
-            print(
-                "Voltages: " + " | ".join(f"A{i}: {v:.3f} V" for i, v in enumerate(volts))
+            robot_state = {
+                "timestamp": time.time(),
+                "adc_voltages": volts,
+                "actuators": actautors_state
+            }
+
+            line = (
+                " | ".join(f"A{i}: cmd={s['command_deg']:.1f}°, fb={s['feedback_deg']:.1f}°"
+                           for i, s in enumerate(robot_state["actuators"]))
             )
-            print(
-                "Positions: " + " | ".join(f"A{i}: {p:.2f}°" for i, p in enumerate(positions))
-            )
+            print(line.ljust(120), end='\r', flush=True)
+            
             time.sleep(0.05)
     except KeyboardInterrupt:
         stop_event.set()  # signal all threads to stop
