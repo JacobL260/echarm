@@ -1,5 +1,3 @@
-import time
-
 def is_raspberry_pi():
     """Check if the code is running on a Raspberry Pi."""
     try:

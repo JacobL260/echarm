@@ -11,6 +11,7 @@ if ON_PI:
     import board, busio, pigpio
     from adafruit_ads1x15.ads1115 import ADS1115
     from adafruit_ads1x15.analog_in import AnalogIn
+    print("Running on a RASP PI")
 else:
     print("Running in LAPTOP MODE")
 

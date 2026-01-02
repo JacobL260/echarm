@@ -32,6 +32,7 @@ class Actuator(threading.Thread):
         self.stepper = Stepper(idx)
         self.cmd_deg = 0
         self.dt = 1.0 / CTRL_HZ
+        self.fb = 0
         self.stepper.start()
 
     def set_command(self, deg):
@@ -44,7 +45,7 @@ class Actuator(threading.Thread):
         while not stop_event.is_set():
             with adc_lock:
                 v = adc_volt[self.idx]
-            fb = (v / VREF) * POT_MAX_DEG * ACT_TO_POT_RATIO[self.idx]
-            vel = self.pid.compute(self.cmd_deg, fb)
+            self.fb = (v / VREF) * POT_MAX_DEG * ACT_TO_POT_RATIO[self.idx]
+            vel = self.pid.compute(self.cmd_deg, self.fb)
             self.stepper.set_velocity(vel * ACT_TO_MOTOR_RATIO[self.idx])
             time.sleep(self.dt)

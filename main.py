@@ -19,13 +19,23 @@ def main():
             with adc_lock:
                 volts = adc_volt.copy()
 
+            positions = [a.fb for a in acts]
+                
+
             print(
-                "Voltages:",
-                " | ".join(f"A{i}: {v:.3f} V" for i, v in enumerate(volts))
+                "Voltages: " + " | ".join(f"A{i}: {v:.3f} V" for i, v in enumerate(volts))
+            )
+            print(
+                "Positions: " + " | ".join(f"A{i}: {p:.2f}°" for i, p in enumerate(positions))
             )
             time.sleep(0.05)
     except KeyboardInterrupt:
-        stop_event.set()
+        stop_event.set()  # signal all threads to stop
+        reader.join()     # wait for ADCReader to finish
+        for a in acts:
+            a.join()      # wait for all actuators to finish
+        print("\nStopped all threads.")
+
 
 
 if __name__ == "__main__":
