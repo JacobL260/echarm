@@ -22,6 +22,7 @@ stop_event = threading.Event()
 class ADCReader(threading.Thread):
     """Thread that reads ADC voltages at regular intervals into shared adc_volt array."""
     def __init__(self, ads=None, src=None):
+        print("ADCREADER START")
         super().__init__(daemon=True)
         self.dt = 1.0 / ADC_HZ
         self.ads = ads
