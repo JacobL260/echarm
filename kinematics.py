@@ -1,9 +1,39 @@
 import numpy as np
+import threading
+import time
 
 from scipy.spatial.transform import Rotation as R
-from config import DH_PARAMS
+from config import DH_PARAMS, FK_HZ
+from hardware import stop_event
 
 # FORWARD KINEMATICS
+class FKThread(threading.Thread):
+    def __init__(self, robot_state, rate_hz=FK_HZ):
+        super().__init__(daemon=True)
+        self.robot_state = robot_state
+        self.dt = 1.0 / rate_hz
+    
+    def run(self):
+        while not stop_event.is_set():
+            # Get actuator feedbacks in order
+            actuators = self.robot_state.get("actuators", {})
+            if not actuators:
+                time.sleep(self.dt)
+                continue
+
+            # Ensure order by index
+            q_deg = [actuators[i]["feedback_deg"] for i in sorted(actuators.keys())]
+
+            q_rad = np.deg2rad(q_deg)
+            T = forward_kinematics(q_rad)
+
+            fk_state = self.robot_state["kinematics"]["fk"]
+            fk_state["T_ee"] = T
+            fk_state["position"] = T[:3, 3]
+            fk_state["rotation"] = T[:3, :3]
+
+            time.sleep(self.dt)
+
 def dh_transform(a, alpha, d, theta):
     """
     Compute the DH transformation matrix for one joint.
@@ -148,26 +178,28 @@ def ik_full_pose(
 
     return q, False
 
-# Target position
-target_pos = np.array([0.3, 0.2, 0.5])  # x, y, z in meters
 
-# Target orientation in roll-pitch-yaw (in degrees or radians)
-roll, pitch, yaw = np.deg2rad([45, 30, 90])  # convert degrees to radians
+if __name__ == "__main__":
+    # Target position
+    target_pos = np.array([0.3, 0.2, 0.5])  # x, y, z in meters
 
-# Convert RPY to rotation matrix
-rot_matrix = R.from_euler('xyz', [roll, pitch, yaw]).as_matrix()
+    # Target orientation in roll-pitch-yaw (in degrees or radians)
+    roll, pitch, yaw = np.deg2rad([45, 30, 90])  # convert degrees to radians
 
-target_T = np.eye(4)
-target_T[:3, 3] = target_pos      # position
-target_T[:3, :3] = rot_matrix    # orientation
+    # Convert RPY to rotation matrix
+    rot_matrix = R.from_euler('xyz', [roll, pitch, yaw]).as_matrix()
 
-q_init = [0, 0, 0, 0, 0, 0]  # initial guess
+    target_T = np.eye(4)
+    target_T[:3, 3] = target_pos      # position
+    target_T[:3, :3] = rot_matrix    # orientation
 
-q_sol, success = ik_full_pose(target_T, q_init)
+    q_init = [0, 0, 0, 0, 0, 0]  # initial guess
 
-if success:
-    print("Joint angles for full-pose IK:", q_sol)
-else:
-    print("IK solver failed to find a solution")
+    q_sol, success = ik_full_pose(target_T, q_init)
 
-q_sol, success = ik_full_pose(target_T, q_init)
+    if success:
+        print("Joint angles for full-pose IK:", q_sol)
+    else:
+        print("IK solver failed to find a solution")
+
+    q_sol, success = ik_full_pose(target_T, q_init)

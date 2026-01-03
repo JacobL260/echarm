@@ -5,6 +5,7 @@ VREF = 3.3
 POT_MAX_DEG = 270
 ADC_HZ = 200
 CTRL_HZ = 50
+FK_HZ = 10
 
 POT_ZERO_OFFSETS = [0, 0, 0, 0, 0, 0]
 
