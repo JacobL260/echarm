@@ -8,10 +8,10 @@ from hardware import stop_event
 
 # FORWARD KINEMATICS
 class FKThread(threading.Thread):
-    def __init__(self, robot_state, rate_hz=FK_HZ):
+    def __init__(self, robot_state):
         super().__init__(daemon=True)
         self.robot_state = robot_state
-        self.dt = 1.0 / rate_hz
+        self.dt = 1.0 / FK_HZ
     
     def run(self):
         while not stop_event.is_set():

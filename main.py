@@ -1,84 +1,100 @@
 import time
+import sys
 
-from config import NUM_AXES, FK_HZ, CTRL_HZ
+from config import NUM_AXES, MAIN_STATUS_HZ, BUTTON_PINS
 from hardware import stop_event, adc_volt, adc_lock
 from control import Actuator
-from kinematics import FKThread, forward_kinematics
+from kinematics import FKThread
 from hardware import ADCReader
-
-
+from hardware import Button
 
 def main():
-    # 1. Initialize Robot State
+    # Initialize Robot State
     robot_state = {
         "timestamp": time.time(),
         "adc_voltages": [0.0] * NUM_AXES,
-        "actuators": {},  # dict keyed by actuator index
+        "actuators": {},
+        "buttons": {},
         "kinematics": {
             "fk": {
                 "T_ee": None,
                 "position": None,
                 "rotation": None
-            }
+            },
+            "actuator_cmd_mode": "joint"
         }
     }
 
-    # 2. Create Actuators
-    acts = []
-    for i in range(NUM_AXES):
-        robot_state["actuators"][i] = {"command_deg":0, "feedback_deg":0, "velocity":0.0}
-        acts.append(Actuator(i,robot_state))
+    # Create and start ADC Reader
+    adc_reader = ADCReader()
+    adc_reader.start()
 
-    # Prepopulate robot_state["actuators"]
-    for a in acts:
-        robot_state["actuators"][a.idx] = {
-            "command_deg": a.cmd_deg,
-            "feedback_deg": a.fb,
+    # Create and start Actuators (prepopulate robot_state and start thread immediately)
+    actuators = []
+    for i in range(NUM_AXES):
+        # Prepopulate robot_state
+        robot_state["actuators"][i] = {
+            "command_deg": 0.0,
+            "feedback_deg": 0.0,
             "velocity": 0.0
         }
 
-    # 3. Start ADC Reader
-    reader = ADCReader()
-    reader.start()
+        # Create actuator object and start its thread
+        act = Actuator(i, robot_state)
+        act.start()
+        actuators.append(act)
 
-    # 4. Start Actuator Threads
-    for a in acts:
-        a.start()
-
-    # 5. Start FK Thread
-    fk_thread = FKThread(robot_state, rate_hz=FK_HZ)
+    # Start FK Thread
+    fk_thread = FKThread(robot_state)
     fk_thread.start()
 
-    # 6. Main Loop
+    # Create and start Buttons (they update robot_state themselves)
+    buttons = []
+    for i, pin in enumerate(BUTTON_PINS):
+        btn = Button(pin=pin, robot_state=robot_state, idx=i)
+        btn.start()
+        buttons.append(btn)
+
+    # Main Loop: print actuator and button states
     try:
-        print("Starting main loop. Press Ctrl+C to exit.")
+        print("Press Ctrl+C to exit. Printing actuator and button states:")
         while True:
             robot_state["timestamp"] = time.time()
 
+            # Safely copy ADC voltages
             with adc_lock:
                 robot_state["adc_voltages"] = adc_volt.copy()
 
-            # Example: display robot state in one line
-            actuators_info = {
-                i: {"cmd": a["command_deg"], "fb": a["feedback_deg"]}
-                for i, a in robot_state["actuators"].items()
+            # Prepare simplified status dicts for printing (rounded)
+            actuator_status = {
+                i: {
+                    "cmd": round(a["command_deg"], 2),
+                    "fb": round(a["feedback_deg"], 2),
+                    "vel": round(a["velocity"], 2)
+                } for i, a in robot_state["actuators"].items()
+            }
+            button_status = {
+                i: {
+                    "pressed": b["pressed"],
+                } for i, b in robot_state["buttons"].items()
             }
 
-            ee_pos = robot_state["kinematics"]["fk"]["position"]
-            print(f"EE Pos: {ee_pos} | Actuators: {actuators_info}", end="\r")
+            # Print status
+            print(f"Actuators: {actuator_status} | Buttons: {button_status}", end="\r")
 
-            # Loop at roughly 20 Hz
-            time.sleep(0.05)
+            time.sleep(1.0 / MAIN_STATUS_HZ)
 
     except KeyboardInterrupt:
         print("\nStopping all threads...")
         stop_event.set()
 
-    # 7. Join Threads Cleanly
-    reader.join()
-    for a in acts:
-        a.join()
+    # Join threads cleanly
+    adc_reader.join()
+    for act in actuators:
+        act.join()
     fk_thread.join()
+    for btn in buttons:
+        btn.join()
     print("All threads stopped.")
 
 if __name__ == "__main__":

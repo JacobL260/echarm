@@ -6,6 +6,8 @@ POT_MAX_DEG = 270
 ADC_HZ = 200
 CTRL_HZ = 50
 FK_HZ = 10
+MAIN_STATUS_HZ = 5
+BUTTON_HZ = 40
 
 POT_ZERO_OFFSETS = [0, 0, 0, 0, 0, 0]
 
@@ -42,6 +44,11 @@ STEPPER_PINS = [
     (7, 8),     # Axis 3
     (9, 10),    # Axis 4
     (11, 12),   # Axis 5
+]
+
+BUTTON_PINS = [
+    13,
+    14
 ]
 
 # DH parameters: [a, alpha, d, theta]

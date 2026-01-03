@@ -1,6 +1,7 @@
 import time
 import threading
 import math
+import random
 
 from config import *
 from utils import is_raspberry_pi
@@ -132,3 +133,82 @@ class Stepper:
                 time.sleep(delay)
 
             self.pos_steps += direction
+
+class Button(threading.Thread):
+    """Button that updates its state directly in robot_state."""
+
+    def __init__(self, pin=None, robot_state=None, idx=0):
+        super().__init__(daemon=True)
+        self.pin = pin
+        self.dt = 1.0 / BUTTON_HZ
+        self._simulate = False
+        self._level = 0
+        self._prev_level = 0
+        self.idx = idx
+        self.robot_state = robot_state
+
+        # Initialize robot_state entry for this button
+        if self.robot_state is not None:
+            self.robot_state["buttons"][self.idx] = {
+                "pressed": False,
+                "was_pressed": False,
+                "was_released": False
+            }
+
+        # Hardware setup
+        if ON_PI:
+            try:
+                self.pi = pigpio.pi()
+                self.pi.set_mode(self.pin, pigpio.INPUT)
+            except Exception as e:
+                print(f"Button {self.idx} init failed, using simulation:", e)
+                self._simulate = True
+                self.t0 = time.time()
+        else:
+            self._simulate = True
+            self.t0 = time.time()
+
+        # Simulation state
+        self._sim_next_change = time.time() + random.uniform(1.0, 3.0)
+        self._sim_pressed_duration = 0.2  # seconds
+
+    def run(self):
+        while not stop_event.is_set():
+            self._prev_level = self._level
+
+            # Read level
+            if ON_PI and not self._simulate:
+                self._level = self.pi.read(self.pin)
+            else:
+                # Simulate press/release
+                now = time.time()
+                if self._level == 0 and now >= self._sim_next_change:
+                    self._level = 1
+                    self._sim_next_change = now + self._sim_pressed_duration
+                elif self._level == 1 and now >= self._sim_next_change:
+                    self._level = 0
+                    self._sim_next_change = now + random.uniform(1.0, 3.0)
+
+            # Edge detection
+            pressed = self._level == 1
+            was_pressed = self._level == 1 and self._prev_level == 0
+            was_released = self._level == 0 and self._prev_level == 1
+
+            # Update robot_state
+            if self.robot_state is not None:
+                self.robot_state["buttons"][self.idx]["pressed"] = pressed
+                self.robot_state["buttons"][self.idx]["was_pressed"] = was_pressed
+                self.robot_state["buttons"][self.idx]["was_released"] = was_released
+
+            time.sleep(self.dt)
+
+    def is_pressed(self):
+        """Return current logical state of the button."""
+        return self._level == 1
+
+    def is_released(self):
+        """Return current logical state of the button."""
+        return self._level == 0
+
+    def is_simulating(self):
+        return self._simulate
