@@ -17,8 +17,6 @@ else:
     print("Running in LAPTOP MODE")
 
 # SHARED STATE
-adc_volt = [0.0] * NUM_AXES
-adc_lock = threading.Lock()
 stop_event = threading.Event()
 
 class ADCReader(threading.Thread):
@@ -29,6 +27,8 @@ class ADCReader(threading.Thread):
         self.ads = ads
         self.src = src
         self._simulate = False
+        self.volt = [0.0] * NUM_AXES
+        self.lock = threading.Lock()
 
         if ON_PI and self.ads is None:
             try:
@@ -55,15 +55,14 @@ class ADCReader(threading.Thread):
     def run(self):
         """Read ADC voltages into shared adc_volt array at regular intervals."""
         while not stop_event.is_set():
-            with adc_lock:
+            with self.lock:
                 if ON_PI and self.src:
                     for i, s in enumerate(self.src):
-                        # write into shared adc_volt array
-                        adc_volt[i] = s.voltage
+                        self.volt[i] = s.voltage
                 else:
                     t = time.time() - self.t0
                     for i in range(NUM_AXES):
-                        adc_volt[i] = (math.sin(t * 0.5 + i) * 0.5 + 0.5) * VREF  # simulate voltages
+                        self.volt[i] = (math.sin(t * 0.5 + i) * 0.5 + 0.5) * VREF  # simulate voltages
             time.sleep(self.dt)
 
     def is_simulating(self):
@@ -137,7 +136,7 @@ class Stepper:
 class Button(threading.Thread):
     """Button that updates its state directly in robot_state."""
 
-    def __init__(self, pin=None, robot_state=None, idx=0):
+    def __init__(self, pin=None, idx=0):
         super().__init__(daemon=True)
         self.pin = pin
         self.dt = 1.0 / BUTTON_HZ
@@ -145,15 +144,8 @@ class Button(threading.Thread):
         self._level = 0
         self._prev_level = 0
         self.idx = idx
-        self.robot_state = robot_state
-
-        # Initialize robot_state entry for this button
-        if self.robot_state is not None:
-            self.robot_state["buttons"][self.idx] = {
-                "pressed": False,
-                "was_pressed": False,
-                "was_released": False
-            }
+        self.buffer = {"pressed": False, "was_pressed": False, "was_release": False}
+        self.lock = threading.Lock()
 
         # Hardware setup
         if ON_PI:
@@ -189,16 +181,11 @@ class Button(threading.Thread):
                     self._level = 0
                     self._sim_next_change = now + random.uniform(1.0, 3.0)
 
-            # Edge detection
-            pressed = self._level == 1
-            was_pressed = self._level == 1 and self._prev_level == 0
-            was_released = self._level == 0 and self._prev_level == 1
-
-            # Update robot_state
-            if self.robot_state is not None:
-                self.robot_state["buttons"][self.idx]["pressed"] = pressed
-                self.robot_state["buttons"][self.idx]["was_pressed"] = was_pressed
-                self.robot_state["buttons"][self.idx]["was_released"] = was_released
+            # Edge detection and update robot_state
+            with self.lock:
+                self.buffer["pressed"] = self._level == 1
+                self.buffer["was_pressed"] = self._level == 1 and self._prev_level == 0
+                self.buffer["was_released"] = self._level == 0 and self._prev_level == 1
 
             time.sleep(self.dt)
 

@@ -3,7 +3,7 @@ import time
 import threading
 
 from config import *
-from hardware import Stepper, adc_volt, adc_lock, stop_event
+from hardware import Stepper, stop_event
 
 class PID:
     def __init__(self, kp, ki, kd):
@@ -24,7 +24,7 @@ class PID:
 
 
 class Actuator(threading.Thread):
-    def __init__(self, idx, robot_state):
+    def __init__(self, idx, adc_reader):
         super().__init__(daemon=True)
         self.idx = idx
         self.pid = PID(**PID_PARAMS[idx])
@@ -32,7 +32,9 @@ class Actuator(threading.Thread):
         self.cmd_deg = 0
         self.dt = 1.0 / CTRL_HZ
         self.fb = 0
-        self.robot_state = robot_state
+        self.buffer = {"cmd": 0.0, "fb": 0.0, "vel": 0.0}
+        self.lock = threading.Lock()
+        self.adc_reader = adc_reader
         self.stepper.start()
 
     def set_command(self, deg):
@@ -43,20 +45,17 @@ class Actuator(threading.Thread):
 
     def run(self):
         while not stop_event.is_set():
-            with adc_lock:
-                v = adc_volt[self.idx]
+            with self.adc_reader.lock:
+                v = self.adc_reader.volt[self.idx]
 
-            # Compute feedback in degrees
             self.fb = (v / VREF) * POT_MAX_DEG * ACT_TO_POT_RATIO[self.idx]
 
-            # PID control
             vel = self.pid.compute(self.cmd_deg, self.fb)
             self.stepper.set_velocity(vel * ACT_TO_MOTOR_RATIO[self.idx])
 
-            # Update robot_state dict safely
-            if self.robot_state is not None:
-                self.robot_state["actuators"][self.idx]["feedback_deg"] = self.fb
-                self.robot_state["actuators"][self.idx]["command_deg"] = self.cmd_deg
-                self.robot_state["actuators"][self.idx]["velocity"] = self.stepper.velocity if hasattr(self.stepper, "velocity") else 0.0
+            with self.lock:
+                self.buffer["fb"] = self.fb
+                self.buffer["cmd"] = self.cmd_deg
+                self.buffer["vel"] = self.stepper.velocity
 
             time.sleep(self.dt)

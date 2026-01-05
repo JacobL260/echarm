@@ -8,29 +8,34 @@ from hardware import stop_event
 
 # FORWARD KINEMATICS
 class FKThread(threading.Thread):
-    def __init__(self, robot_state):
+    def __init__(self, robot_state, actuators):
         super().__init__(daemon=True)
         self.robot_state = robot_state
+        self.actuators = actuators
         self.dt = 1.0 / FK_HZ
+        self.fk_buffer = {
+            "T_ee": None,
+            "position": None,
+            "rotation": None
+        }
     
     def run(self):
         while not stop_event.is_set():
-            # Get actuator feedbacks in order
-            actuators = self.robot_state.get("actuators", {})
-            if not actuators:
-                time.sleep(self.dt)
-                continue
-
-            # Ensure order by index
-            q_deg = [actuators[i]["feedback_deg"] for i in sorted(actuators.keys())]
+            # Read fb snapshot
+            q_deg = []
+            for act in self.actuators:
+                with act.lock:
+                    q_deg.append(act.buffer["fb"])
 
             q_rad = np.deg2rad(q_deg)
             T = forward_kinematics(q_rad)
 
-            fk_state = self.robot_state["kinematics"]["fk"]
-            fk_state["T_ee"] = T
-            fk_state["position"] = T[:3, 3]
-            fk_state["rotation"] = T[:3, :3]
+            # Write to its own buffer
+            self.fk_buffer = {
+                "T_ee": T,
+                "position": T[:3,3],
+                "rotation": T[:3,:3]
+            }
 
             time.sleep(self.dt)
 
