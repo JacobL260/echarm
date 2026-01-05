@@ -170,7 +170,7 @@ class Button(threading.Thread):
 
         # Simulation state
         self._sim_next_change = time.time() + random.uniform(1.0, 3.0)
-        self._sim_pressed_duration = 0.2  # seconds
+        self._sim_pressed_duration = 1  # seconds
 
     def run(self):
         while not stop_event.is_set():

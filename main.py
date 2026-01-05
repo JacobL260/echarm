@@ -1,5 +1,4 @@
 import time
-import sys
 
 from config import NUM_AXES, MAIN_STATUS_HZ, BUTTON_PINS
 from hardware import stop_event, adc_volt, adc_lock
