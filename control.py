@@ -7,6 +7,14 @@ from hardware import Stepper, stop_event
 
 class PID:
     def __init__(self, kp, ki, kd):
+        """
+        Docstring for __init__
+        
+        :param self: Description
+        :param kp: Description
+        :param ki: Description
+        :param kd: Description
+        """
         self.kp, self.ki, self.kd = kp, ki, kd
         self.i = 0
         self.last_e = 0
@@ -25,6 +33,13 @@ class PID:
 
 class Actuator(threading.Thread):
     def __init__(self, idx, adc_reader):
+        """
+        Docstring for __init__
+        
+        :param self: Description
+        :param idx: Description
+        :param adc_reader: Description
+        """
         super().__init__(daemon=True)
         self.idx = idx
         self.pid = PID(**PID_PARAMS[idx])

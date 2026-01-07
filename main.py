@@ -4,8 +4,6 @@ from config import NUM_AXES, MAIN_STATUS_HZ, BUTTON_PINS
 from hardware import stop_event, ADCReader, Button
 from control import Actuator
 from kinematics import FKThread
-from hardware import ADCReader
-from hardware import Button
 
 def main():
     # Initialize Robot State
@@ -60,7 +58,7 @@ def main():
             if hasattr(fk_thread, "fk_buffer"):
                 robot_state["kinematics"] = fk_thread.fk_buffer.copy()
             
-            print(robot_state["kinematics"])
+            print(robot_state["adc_voltages"])
 
             time.sleep(1.0 / MAIN_STATUS_HZ)
 

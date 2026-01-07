@@ -58,15 +58,15 @@ ADC_CHANNEL_MAP = [
 # TB6600 STEP / DIR pin mapping per axis
 # Format: (STEP_PIN, DIR_PIN)
 STEPPER_PINS = [
-    (1, 2),
-    (3, 4),
     (5, 6),
     (7, 8),
     (9, 10),
     (11, 12),
+    (13, 14),
+    (15, 16),
 ]
 
 BUTTON_PINS = [
-    13,
-    14
+    17,
+    18
 ]
