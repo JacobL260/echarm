@@ -11,7 +11,7 @@ POT_MAX_DEG = 270
 ADC_HZ = 200
 CTRL_HZ = 50
 FK_HZ = 10
-MAIN_STATUS_HZ = 5
+MAIN_STATUS_HZ = 1
 BUTTON_HZ = 40
 
 # Need to work on, essentially correction in calibration of the mechanical systems
@@ -47,12 +47,12 @@ ADS_ADDRESSES = [0x48, 0x49]
 
 # Channel mapping (ADS index, channel enum name)
 ADC_CHANNEL_MAP = [
-    (0, "P0"),
-    (0, "P1"),
-    (0, "P2"),
-    (1, "P0"),
-    (1, "P1"),
-    (1, "P2"),
+    (0, 0),
+    (0, 1),
+    (0, 2),
+    (1, 0),
+    (1, 1),
+    (1, 2),
 ]
 
 # TB6600 STEP / DIR pin mapping per axis

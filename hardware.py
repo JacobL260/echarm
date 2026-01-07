@@ -18,7 +18,6 @@ else:
 stop_event = threading.Event()
 
 class ADCReader(threading.Thread):
-    """Thread that reads ADC voltages at regular intervals into shared adc_volt array."""
     def __init__(self, ads=None, src=None):
         super().__init__(daemon=True)
         self.dt = 1.0 / ADC_HZ
@@ -30,36 +29,40 @@ class ADCReader(threading.Thread):
 
         if ON_PI and self.ads is None:
             try:
-                import board, busio
+                import board
+                import busio
                 from adafruit_ads1x15.ads1115 import ADS1115
                 from adafruit_ads1x15.analog_in import AnalogIn
 
                 i2c = busio.I2C(board.SCL, board.SDA)
 
-                # Create ADS instances from config
-                self.ads = [ADS1115(i2c, address=addr, gain=1) for addr in ADS_ADDRESSES]
-
-                # Create AnalogIn channels from config map
-                self.src = [
-                    AnalogIn(self.ads[a], getattr(ADS1115, ch))
-                    for a, ch in ADC_CHANNEL_MAP
+                # Create ADS instances
+                self.ads = [
+                    ADS1115(i2c, address=addr, gain=1)
+                    for addr in ADS_ADDRESSES
                 ]
+
+                # Create AnalogIn channels (RAW MUX VALUES)
+                self.src = []
+                for ads_idx, channel in ADC_CHANNEL_MAP:
+                    mux = channel + 0x04   # <-- CRITICAL LINE
+                    self.src.append(AnalogIn(self.ads[ads_idx], mux))
 
             except Exception as e:
                 print("ADC init failed, using simulation:", e)
                 self._simulate = True
                 self.t0 = time.time()
 
-        elif not ON_PI:
+        else:
             self._simulate = True
             self.t0 = time.time()
 
     def run(self):
         while not stop_event.is_set():
             with self.lock:
-                if ON_PI and self.src:
-                    for i, s in enumerate(self.src):
-                        self.volt[i] = s.voltage
+                if ON_PI and self.src and not self._simulate:
+                    for i, ch in enumerate(self.src):
+                        self.volt[i] = ch.voltage
                 else:
                     t = time.time() - self.t0
                     for i in range(NUM_AXES):
@@ -67,7 +70,7 @@ class ADCReader(threading.Thread):
             time.sleep(self.dt)
 
     def is_simulating(self):
-        return getattr(self, "_simulate", True)
+        return self._simulate
 
 
 class Stepper:
@@ -105,7 +108,7 @@ class Stepper:
 
     def start(self):
         """Start the velocity control thread."""
-        if not self.running:
+        if not self.running and not stop_event.is_set():
             self.running = True
             self._thread = threading.Thread(target=self._run_velocity, daemon=True)
             self._thread.start()
