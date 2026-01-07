@@ -18,50 +18,46 @@ else:
 stop_event = threading.Event()
 
 class ADCReader(threading.Thread):
-    def __init__(self, ads=None, src=None):
+    def __init__(self):
         super().__init__(daemon=True)
         self.dt = 1.0 / ADC_HZ
-        self.ads = ads
-        self.src = src
-        self._simulate = False
         self.volt = [0.0] * NUM_AXES
         self.lock = threading.Lock()
+        self._simulate = False
 
-        if ON_PI and self.ads is None:
+        if ON_PI:
             try:
                 import board
                 import busio
                 from adafruit_ads1x15.ads1115 import ADS1115
                 from adafruit_ads1x15.analog_in import AnalogIn
 
+                # Initialize I2C and ADS1115 boards
                 i2c = busio.I2C(board.SCL, board.SDA)
+                self.ads_list = [ADS1115(i2c, address=addr) for addr in ADS_ADDRESSES]
+                for ads in self.ads_list:
+                    ads.gain = 1  # ±4.096V
 
-                # Create ADS instances
-                self.ads = [
-                    ADS1115(i2c, address=addr, gain=1)
-                    for addr in ADS_ADDRESSES
+                # Prepare AnalogIn channels based on mapping
+                self.channels = [
+                    AnalogIn(self.ads_list[ads_idx], channel)
+                    for ads_idx, channel in ADC_CHANNEL_MAP
                 ]
-
-                # Create AnalogIn channels (RAW MUX VALUES)
-                self.src = []
-                for ads_idx, channel in ADC_CHANNEL_MAP:
-                    mux = channel + 0x04   # <-- CRITICAL LINE
-                    self.src.append(AnalogIn(self.ads[ads_idx], mux))
 
             except Exception as e:
                 print("ADC init failed, using simulation:", e)
                 self._simulate = True
                 self.t0 = time.time()
-
         else:
+            # Simulate if not on Raspberry Pi
             self._simulate = True
             self.t0 = time.time()
 
     def run(self):
         while not stop_event.is_set():
             with self.lock:
-                if ON_PI and self.src and not self._simulate:
-                    for i, ch in enumerate(self.src):
+                if ON_PI and not self._simulate:
+                    for i, ch in enumerate(self.channels):
                         self.volt[i] = ch.voltage
                 else:
                     t = time.time() - self.t0
