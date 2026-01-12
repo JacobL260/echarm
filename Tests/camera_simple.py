@@ -1,12 +1,18 @@
-import cv2
-from realsense_depth import *
+import pyrealsense2 as rs
 
-dc = DepthCamera()
+pipeline = rs.pipeline() # Create a pipeline
+pipeline.start() # Start streaming
 
-cv2.namedWindow("")
+try:
+    while True:
+        frames = pipeline.wait_for_frames()
+        depth_frame = frames.get_depth_frame()
+        if not depth_frame:
+            continue
 
+        width, height = depth_frame.get_width(), depth_frame.get_height()
+        dist = depth_frame.get_distance(width // 2, height // 2)
+        print(f"The camera is facing an object {dist:.3f} meters away", end="\r")
 
-ret, depth_frame, color_frame = dc.get_frame()
-
-cv2.imshow("Color frame", color_frame)
-cv2.waitKey(0)
+finally:
+    pipeline.stop() # Stop streaming
