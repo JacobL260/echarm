@@ -11,7 +11,7 @@ POT_MAX_DEG = 270
 ADC_HZ = 200
 CTRL_HZ = 50
 FK_HZ = 10
-MAIN_STATUS_HZ = 30
+MAIN_STATUS_HZ = 5
 BUTTON_HZ = 40
 
 # Need to work on, essentially correction in calibration of the mechanical systems
