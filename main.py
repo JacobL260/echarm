@@ -10,7 +10,7 @@ def main():
     robot_state = {
         "timestamp": 0.0,
         "adc_voltages": [0.0] * NUM_AXES,
-        "actuators": {i: {"cmd": 0.0, "fb": 0.0, "vel": 0.0} for i in range(NUM_AXES)},
+        "actuators": {i: {"pos_cmd": 0.0, "vel_cmd": 0.0, "fb": 0.0, "vel": 0.0} for i in range(NUM_AXES)},
         "buttons": {i: {"pressed": False, "was_pressed": False, "was_released": False} for i in range(len(BUTTON_PINS))},
         "kinematics": {"T_ee": None, "position": None, "rotation": None}
     }

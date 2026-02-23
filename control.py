@@ -33,44 +33,67 @@ class PID:
 
 class Actuator(threading.Thread):
     def __init__(self, idx, adc_reader):
-        """
-        Docstring for __init__
-        
-        :param self: Description
-        :param idx: Description
-        :param adc_reader: Description
-        """
         super().__init__(daemon=True)
         self.idx = idx
         self.pid = PID(**PID_PARAMS[idx])
         self.stepper = Stepper(idx)
-        self.cmd_deg = 0
+
+        self.pos_cmd = 0
+        self.vel_cmd_input = None
+
         self.dt = 1.0 / CTRL_HZ
         self.fb = 0
-        self.buffer = {"cmd": 0.0, "fb": 0.0, "vel": 0.0}
+        self.buffer = {"pos_cmd": 0.0, "vel_cmd": 0.0, "fb": 0.0, "vel": 0.0}
         self.lock = threading.Lock()
         self.adc_reader = adc_reader
         self.stepper.start()
 
-    def set_command(self, deg):
-        lim = ACT_SOFT_LIMITS[self.idx]
-        self.cmd_deg = max(lim["min"], min(lim["max"], deg))
-        if deg > lim["max"] or deg < lim["min"]:
-            print(f"Actuator {self.idx} command {deg}° out of limits, modified to {self.cmd_deg}°")
-
+    # --------------------------
+    # Thread loop
+    # --------------------------
     def run(self):
         while not stop_event.is_set():
+            # Read feedback from ADC
             with self.adc_reader.lock:
                 v = self.adc_reader.volt[self.idx]
 
+            # Feedback in degrees
             self.fb = (v / VREF) * POT_MAX_DEG * ACT_TO_POT_RATIO[self.idx]
 
-            vel = self.pid.compute(self.cmd_deg, self.fb)
-            self.stepper.set_velocity(vel * ACT_TO_MOTOR_RATIO[self.idx])
+            # Compute motor velocity
+            if self.vel_cmd_input is not None:
+                # External velocity command
+                motor_vel = self.vel_cmd_input * ACT_TO_MOTOR_RATIO[self.idx]
+                vel_cmd_to_buffer = self.vel_cmd_input
+            else:
+                # PID computes velocity for position control
+                motor_vel = self.pid.compute(self.pos_cmd, self.fb) * ACT_TO_MOTOR_RATIO[self.idx]
+                vel_cmd_to_buffer = motor_vel / ACT_TO_MOTOR_RATIO[self.idx]
 
+            # Apply velocity to stepper
+            self.stepper.set_velocity(motor_vel)
+
+            # Update buffer
             with self.lock:
+                self.buffer["pos_cmd"] = self.pos_cmd
+                self.buffer["vel_cmd"] = vel_cmd_to_buffer
                 self.buffer["fb"] = self.fb
-                self.buffer["cmd"] = self.cmd_deg
                 self.buffer["vel"] = self.stepper.velocity
 
             time.sleep(self.dt)
+
+    # --------------------------
+    # Set position command
+    # --------------------------
+    def set_position(self, deg):
+        lim = ACT_SOFT_LIMITS[self.idx]
+        self.pos_cmd = max(lim["min"], min(lim["max"], deg))
+        if deg > lim["max"] or deg < lim["min"]:
+            print(f"Actuator {self.idx} position command {deg}° out of limits, modified to {self.pos_cmd}°")
+        self.vel_cmd_input = None  # PID will generate vel_cmd
+
+    # --------------------------
+    # Set velocity command directly
+    # --------------------------
+    def set_velocity(self, vel):
+        self.vel_cmd_input = vel  # bypass PID
