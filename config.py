@@ -4,11 +4,8 @@ import os
 # Self explaniroty
 NUM_AXES = 6
 
-ADC_MODE = os.getenv("ADC_MODE", "hardware")  
+ADC_MODE = os.getenv("ADC_MODE", "hardware")  # default is hardware
 # valid values: "hardware", "simulation"
-
-# Whether to simulate ADC readings when hardware is not available
-ADC_MODE = "hardware" # "hardware" or "simulation"
 
 # Pot configurations
 VREF = 3.3

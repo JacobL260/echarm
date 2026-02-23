@@ -35,7 +35,7 @@ class ADCReader(threading.Thread):
         elif ADC_MODE == "hardware":
             print("ADC MODE: HARDWARE")
             self._simulate = False
-            self._init_hardware()  # will raise if fails
+            self._init_hardware()
 
         else:
             raise ValueError(f"Invalid ADC_MODE: {ADC_MODE}")
