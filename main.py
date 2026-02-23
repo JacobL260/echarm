@@ -67,12 +67,12 @@ def main():
         stop_event.set()
 
     # Join threads cleanly
-    adc_reader.join()
+    adc_reader.join(timeout=1.0)
     for act in actuators:
-        act.join()
-    fk_thread.join()
+        act.join(timeout=1.0)
+    fk_thread.join(timeout=1.0)
     for btn in buttons:
-        btn.join()
+        btn.join(timeout=1.0)
     print("All threads stopped.")
 
 if __name__ == "__main__":
