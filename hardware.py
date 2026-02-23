@@ -152,7 +152,7 @@ class Stepper:
             self.pos_steps += direction
 
 class Button(threading.Thread):
-    """Button that updates its state directly in robot_state."""
+    """Button that updates its state, with optional simulation."""
 
     def __init__(self, pin=None, idx=0):
         super().__init__(daemon=True)
@@ -165,28 +165,40 @@ class Button(threading.Thread):
         self.buffer = {"pressed": False, "was_pressed": False, "was_released": False}
         self.lock = threading.Lock()
 
-        if ON_PI:
-            try:
-                self.hw_button = GPIOButton(self.pin, pull_up=True)
-            except Exception as e:
-                print(f"Button {self.idx} init failed, using simulation:", e)
-                self._simulate = True
-                self.t0 = time.time()
-        else:
+        if BUTTON_MODE == "simulation":
+            print(f"Button {self.idx} MODE: SIMULATION")
             self._simulate = True
             self.t0 = time.time()
+
+        elif BUTTON_MODE == "hardware":
+            print(f"Button {self.idx} MODE: HARDWARE")
+            self._simulate = False
+            self._init_hardware()
+        else:
+            raise ValueError(f"Invalid BUTTON_MODE: {BUTTON_MODE}")
 
         # Simulation state
         self._sim_next_change = time.time() + random.uniform(1.0, 3.0)
         self._sim_pressed_duration = 1  # seconds
 
+    # --------------------------
+    # Hardware init
+    # --------------------------
+    def _init_hardware(self):
+        try:
+            from gpiozero import Button as GPIOButton
+            self.hw_button = GPIOButton(self.pin, pull_up=True)
+        except Exception as e:
+            raise RuntimeError(f"Button {self.idx} hardware initialization failed") from e
+
+    # --------------------------
+    # Thread loop
+    # --------------------------
     def run(self):
-        while not stop_event.is_set():
+        while True:
             self._prev_level = self._level
 
-            if ON_PI and not self._simulate:
-                self._level = int(self.hw_button.is_pressed)
-            else:
+            if self._simulate:
                 now = time.time()
                 if self._level == 0 and now >= self._sim_next_change:
                     self._level = 1
@@ -194,7 +206,10 @@ class Button(threading.Thread):
                 elif self._level == 1 and now >= self._sim_next_change:
                     self._level = 0
                     self._sim_next_change = now + random.uniform(1.0, 3.0)
+            else:
+                self._level = int(self.hw_button.is_pressed)
 
+            # Update buffer safely
             with self.lock:
                 self.buffer["pressed"] = self._level == 1
                 self.buffer["was_pressed"] = self._level == 1 and self._prev_level == 0
@@ -202,6 +217,9 @@ class Button(threading.Thread):
 
             time.sleep(self.dt)
 
+    # --------------------------
+    # State accessors
+    # --------------------------
     def is_pressed(self):
         return self._level == 1
 
