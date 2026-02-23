@@ -9,7 +9,6 @@ from utils import is_raspberry_pi
 ON_PI = is_raspberry_pi()
 
 if ON_PI:
-    from gpiozero import Button as GPIOButton
     print("Running on a RASP PI")
 else:
     print("Running in LAPTOP MODE")
@@ -67,7 +66,7 @@ class ADCReader(threading.Thread):
     # Thread Loop
     # --------------------------
     def run(self):
-        while True:
+        while not stop_event.is_set():
             if self._simulate:
                 values = self._read_sim()
             else:
@@ -195,7 +194,7 @@ class Button(threading.Thread):
     # Thread loop
     # --------------------------
     def run(self):
-        while True:
+        while not stop_event.is_set():
             self._prev_level = self._level
 
             if self._simulate:
