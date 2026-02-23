@@ -18,7 +18,7 @@ else:
 stop_event = threading.Event()
 
 class ADCReader(threading.Thread):
-    def __init__(self, allow_sim_if_fail=True):
+    def __init__(self):
         super().__init__(daemon=True)
         self.dt = 1.0 / ADC_HZ
         self.volt = [0.0] * NUM_AXES
@@ -26,34 +26,23 @@ class ADCReader(threading.Thread):
         self._simulate = False
         self.t0 = None
 
-        # Decide mode
+        # Decide mode strictly
         if ADC_MODE == "simulation":
             print("ADC MODE: SIMULATION")
-            self._enable_sim()
+            self._simulate = True
+            self.t0 = time.time()
+
         elif ADC_MODE == "hardware":
-            try:
-                print("ADC MODE: HARDWARE")
-                self._init_hardware()
-            except Exception as e:
-                if allow_sim_if_fail:
-                    print(f"Hardware init failed: {e}. Falling back to SIMULATION MODE.")
-                    self._enable_sim()
-                else:
-                    raise RuntimeError("ADC hardware initialization failed") from e
+            print("ADC MODE: HARDWARE")
+            self._simulate = False
+            self._init_hardware()  # will raise if fails
+
         else:
             raise ValueError(f"Invalid ADC_MODE: {ADC_MODE}")
 
     # --------------------------
-    # Simulation helper
-    # --------------------------
-    def _enable_sim(self):
-        self._simulate = True
-        self.t0 = time.time()
-
-    # --------------------------
     # Hardware Init
     # --------------------------
-
     def _init_hardware(self):
         try:
             import board
@@ -64,7 +53,6 @@ class ADCReader(threading.Thread):
             i2c = busio.I2C(board.SCL, board.SDA)
 
             self.ads_list = [ADS1115(i2c, address=addr) for addr in ADS_ADDRESSES]
-
             for ads in self.ads_list:
                 ads.gain = 1  # ±4.096V
 
@@ -72,14 +60,12 @@ class ADCReader(threading.Thread):
                 AnalogIn(self.ads_list[ads_idx], channel)
                 for ads_idx, channel in ADC_CHANNEL_MAP
             ]
-
         except Exception as e:
             raise RuntimeError("ADC hardware initialization failed") from e
 
     # --------------------------
     # Thread Loop
     # --------------------------
-
     def run(self):
         while True:
             if self._simulate:
@@ -95,19 +81,12 @@ class ADCReader(threading.Thread):
     # --------------------------
     # Read Methods
     # --------------------------
-
     def _read_sim(self):
         t = time.time() - self.t0
-        values = []
-
-        for i in range(NUM_AXES):
-            v = (math.sin(t * 0.5 + i) * 0.5 + 0.5) * VREF
-            values.append(v)
-        return values
+        return [(math.sin(t * 0.5 + i) * 0.5 + 0.5) * VREF for i in range(NUM_AXES)]
 
     def _read_hardware(self):
         return [ch.voltage for ch in self.channels]
-
 
 class Stepper:
     """Stepper motor controlled via TB6600 using STEP/DIR with velocity control"""
