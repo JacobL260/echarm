@@ -21,6 +21,7 @@ python -m pip install --upgrade pip
 
 pip install -r requirements.txt
 
-python main.py
+ADC_MODE=simulation python main.py
+valid values: "hardware", "simulation"
 
 deactivate
