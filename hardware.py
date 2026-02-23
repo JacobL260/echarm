@@ -23,50 +23,77 @@ class ADCReader(threading.Thread):
         self.dt = 1.0 / ADC_HZ
         self.volt = [0.0] * NUM_AXES
         self.lock = threading.Lock()
-        self._simulate = False
 
-        if ON_PI:
-            try:
-                import board
-                import busio
-                from adafruit_ads1x15.ads1115 import ADS1115
-                from adafruit_ads1x15.analog_in import AnalogIn
-
-                # Initialize I2C and ADS1115 boards
-                i2c = busio.I2C(board.SCL, board.SDA)
-                self.ads_list = [ADS1115(i2c, address=addr) for addr in ADS_ADDRESSES]
-                for ads in self.ads_list:
-                    ads.gain = 1  # ±4.096V
-
-                # Prepare AnalogIn channels based on mapping
-                self.channels = [
-                    AnalogIn(self.ads_list[ads_idx], channel)
-                    for ads_idx, channel in ADC_CHANNEL_MAP
-                ]
-
-            except Exception as e:
-                print("ADC init failed, using simulation:", e)
-                self._simulate = True
-                self.t0 = time.time()
-        else:
-            # Simulate if not on Raspberry Pi
+        if ADC_MODE == "simulation":
+            print("ADC MODE: SIMULATION")
             self._simulate = True
             self.t0 = time.time()
 
+        elif ADC_MODE == "hardware":
+            print("ADC MODE: HARDWARE")
+            self._simulate = False
+            self._init_hardware()
+
+        else:
+            raise ValueError(f"Invalid ADC_MODE: {ADC_MODE}")
+
+    # --------------------------
+    # Hardware Init
+    # --------------------------
+
+    def _init_hardware(self):
+        try:
+            import board
+            import busio
+            from adafruit_ads1x15.ads1115 import ADS1115
+            from adafruit_ads1x15.analog_in import AnalogIn
+
+            i2c = busio.I2C(board.SCL, board.SDA)
+
+            self.ads_list = [ADS1115(i2c, address=addr) for addr in ADS_ADDRESSES]
+
+            for ads in self.ads_list:
+                ads.gain = 1  # ±4.096V
+
+            self.channels = [
+                AnalogIn(self.ads_list[ads_idx], channel)
+                for ads_idx, channel in ADC_CHANNEL_MAP
+            ]
+
+        except Exception as e:
+            raise RuntimeError("ADC hardware initialization failed") from e
+
+    # --------------------------
+    # Thread Loop
+    # --------------------------
+
     def run(self):
-        while not stop_event.is_set():
+        while True:
+            if self._simulate:
+                values = self._read_sim()
+            else:
+                values = self._read_hardware()
+
             with self.lock:
-                if ON_PI and not self._simulate:
-                    for i, ch in enumerate(self.channels):
-                        self.volt[i] = ch.voltage
-                else:
-                    t = time.time() - self.t0
-                    for i in range(NUM_AXES):
-                        self.volt[i] = (math.sin(t * 0.5 + i) * 0.5 + 0.5) * VREF
+                self.volt = values
+
             time.sleep(self.dt)
 
-    def is_simulating(self):
-        return self._simulate
+    # --------------------------
+    # Read Methods
+    # --------------------------
+
+    def _read_sim(self):
+        t = time.time() - self.t0
+        values = []
+
+        for i in range(NUM_AXES):
+            v = (math.sin(t * 0.5 + i) * 0.5 + 0.5) * VREF
+            values.append(v)
+        return values
+
+    def _read_hardware(self):
+        return [ch.voltage for ch in self.channels]
 
 
 class Stepper:

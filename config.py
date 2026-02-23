@@ -3,6 +3,9 @@ import math
 # Self explaniroty
 NUM_AXES = 6
 
+# Whether to simulate ADC readings when hardware is not available
+ADC_MODE = "hardware" # "hardware" or "simulation"
+
 # Pot configurations
 VREF = 3.3
 POT_MAX_DEG = 270
@@ -55,15 +58,14 @@ ADC_CHANNEL_MAP = [
     (1, 2),
 ]
 
-# TB6600 STEP / DIR pin mapping per axis
-# Format: (STEP_PIN, DIR_PIN)
+# Stepper Motor Driver:  STEP / DIR pin mapping per axis
 STEPPER_PINS = [
+    (4, 17),
+    (27, 22),
     (5, 6),
-    (7, 8),
-    (9, 10),
-    (11, 12),
-    (13, 14),
-    (15, 16),
+    (13, 19),
+    (18, 23),
+    (24, 25),
 ]
 
 BUTTON_PINS = [
