@@ -18,24 +18,37 @@ else:
 stop_event = threading.Event()
 
 class ADCReader(threading.Thread):
-    def __init__(self):
+    def __init__(self, allow_sim_if_fail=True):
         super().__init__(daemon=True)
         self.dt = 1.0 / ADC_HZ
         self.volt = [0.0] * NUM_AXES
         self.lock = threading.Lock()
+        self._simulate = False
+        self.t0 = None
 
+        # Decide mode
         if ADC_MODE == "simulation":
             print("ADC MODE: SIMULATION")
-            self._simulate = True
-            self.t0 = time.time()
-
+            self._enable_sim()
         elif ADC_MODE == "hardware":
-            print("ADC MODE: HARDWARE")
-            self._simulate = False
-            self._init_hardware()
-
+            try:
+                print("ADC MODE: HARDWARE")
+                self._init_hardware()
+            except Exception as e:
+                if allow_sim_if_fail:
+                    print(f"Hardware init failed: {e}. Falling back to SIMULATION MODE.")
+                    self._enable_sim()
+                else:
+                    raise RuntimeError("ADC hardware initialization failed") from e
         else:
             raise ValueError(f"Invalid ADC_MODE: {ADC_MODE}")
+
+    # --------------------------
+    # Simulation helper
+    # --------------------------
+    def _enable_sim(self):
+        self._simulate = True
+        self.t0 = time.time()
 
     # --------------------------
     # Hardware Init
