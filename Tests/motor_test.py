@@ -2,8 +2,8 @@ import lgpio
 import time
 
 # --- Configuration ---
-STEP_PIN = 5  
-DIR_PIN  = 6  
+STEP_PIN = 13  
+DIR_PIN  = 19 
 
 # Open the GPIO chip (Pi 5 = chip 0)
 h = lgpio.gpiochip_open(0)
