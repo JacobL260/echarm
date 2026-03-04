@@ -5,26 +5,24 @@ import math
 STEP_PIN = 5
 DIR_PIN = 6
 
-# Open GPIO chip (Pi 5 usually uses gpiochip4)
 h = lgpio.gpiochip_open(0)
-                        
-lgpio.gpio_claim_output(h, STEP_PIN)
-lgpio.gpio_claim_output(h, DIR_PIN)
 
 try:
-    lgpio.gpio_write(h, DIR_PIN, 1)  # Set direction
+    lgpio.gpio_claim_output(h, STEP_PIN, 0)
+    lgpio.gpio_claim_output(h, DIR_PIN, 0)
+
+    lgpio.gpio_write(h, DIR_PIN, 1)
 
     while True:
-        # Smooth varying speed using sine wave
         t = time.time()
-        speed = 200 + 180 * math.sin(t)   # steps/sec (20–380 range approx)
+        speed = 300 + 250 * math.sin(t)
         delay = 1.0 / abs(speed)
 
-        # Step pulse
         lgpio.gpio_write(h, STEP_PIN, 1)
-        time.sleep(delay / 2)
+        time.sleep(0.00001)   # 10µs pulse width
         lgpio.gpio_write(h, STEP_PIN, 0)
-        time.sleep(delay / 2)
+
+        time.sleep(max(delay - 0.00001, 0))
 
 except KeyboardInterrupt:
     print("Stopping motor...")
