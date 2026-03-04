@@ -6,8 +6,8 @@ STEP_PIN = 5
 DIR_PIN = 6
 
 # Open GPIO chip (Pi 5 usually uses gpiochip4)
-h = lgpio.gpiochip_open(4)
-
+h = lgpio.gpiochip_open(0)
+                        
 lgpio.gpio_claim_output(h, STEP_PIN)
 lgpio.gpio_claim_output(h, DIR_PIN)
 
