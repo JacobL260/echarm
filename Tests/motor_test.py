@@ -1,32 +1,31 @@
 import lgpio
 import time
-import math
 
 STEP_PIN = 5
 DIR_PIN = 6
 
+# open gpio chip
 h = lgpio.gpiochip_open(0)
 
-try:
-    lgpio.gpio_claim_output(h, STEP_PIN, 0)
-    lgpio.gpio_claim_output(h, DIR_PIN, 0)
+# claim pins as outputs
+lgpio.gpio_claim_output(h, STEP_PIN)
+lgpio.gpio_claim_output(h, DIR_PIN)
 
-    lgpio.gpio_write(h, DIR_PIN, 1)
+# set direction
+lgpio.gpio_write(h, DIR_PIN, 1)   # 1 = clockwise, 0 = counterclockwise
 
-    while True:
-        t = time.time()
-        speed = 1000
-        delay = 1.0 / abs(speed)
+steps = 200
+delay = 0.001   # controls speed
 
-        lgpio.gpio_write(h, STEP_PIN, 1)
-        time.sleep(0.001)   # 10µs pulse width
-        lgpio.gpio_write(h, STEP_PIN, 0)
+print("Running stepper...")
 
-        time.sleep(max(delay - 0.001, 0))
-
-except KeyboardInterrupt:
-    print("Stopping motor...")
-
-finally:
+for i in range(steps):
+    lgpio.gpio_write(h, STEP_PIN, 1)
+    time.sleep(delay)
     lgpio.gpio_write(h, STEP_PIN, 0)
-    lgpio.gpiochip_close(h)
+    time.sleep(delay)
+
+print("Done")
+
+# close gpio chip
+lgpio.gpiochip_close(h)
