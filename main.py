@@ -22,6 +22,11 @@ def main():
     adc_reader = ADCReader()
     adc_reader.start()
 
+    # Create and start Actuators
+    actuators = [Actuator(i, adc_reader) for i in range(NUM_AXES)]
+    for act in actuators:
+        act.start()
+
     # Start command interface thread
     cmd_thread = threading.Thread(
         target=command_interface,
@@ -29,11 +34,6 @@ def main():
         daemon=True
     )
     cmd_thread.start()
-
-    # Create and start Actuators
-    actuators = [Actuator(i, adc_reader) for i in range(NUM_AXES)]
-    for act in actuators:
-        act.start()
 
     # Start FK Thread
     fk_thread = FKThread(robot_state, actuators)
