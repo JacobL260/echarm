@@ -24,6 +24,7 @@ class ADCReader(threading.Thread):
         self.lock = threading.Lock()
         self._simulate = False
         self.t0 = None
+        self.adc_available = False
 
         # Decide mode strictly
         if ADC_MODE == "simulation":
@@ -34,7 +35,17 @@ class ADCReader(threading.Thread):
         elif ADC_MODE == "hardware":
             print("ADC MODE: HARDWARE")
             self._simulate = False
-            self._init_hardware()
+            self.adc_available = True
+
+            try:
+                self._init_hardware()
+            except Exception as e:
+                print("⚠ ADC hardware init failed.")
+                print("⚠ Positional control NOT available.")
+                print(f"⚠ Error: {e}")
+
+                self.adc_available = False
+                self._simulate = False  # no sim fallback
 
         else:
             raise ValueError(f"Invalid ADC_MODE: {ADC_MODE}")
@@ -85,6 +96,9 @@ class ADCReader(threading.Thread):
         return [(math.sin(t * 0.5 + i) * 0.5 + 0.5) * VREF for i in range(NUM_AXES)]
 
     def _read_hardware(self):
+        if not self.adc_available:
+            return self.volt  # return last known values (zeros)
+
         return [ch.voltage for ch in self.channels]
 
 class Stepper:

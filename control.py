@@ -47,6 +47,7 @@ class Actuator(threading.Thread):
         self.lock = threading.Lock()
         self.adc_reader = adc_reader
         self.stepper.start()
+        self.position_control_available = adc_reader.adc_available
 
     # --------------------------
     # Thread loop
@@ -62,13 +63,17 @@ class Actuator(threading.Thread):
 
             # Compute motor velocity
             if self.vel_cmd_input is not None:
-                # External velocity command
                 motor_vel = self.vel_cmd_input * ACT_TO_MOTOR_RATIO[self.idx]
                 vel_cmd_to_buffer = self.vel_cmd_input
-            else:
-                # PID computes velocity for position control
+
+            elif self.position_control_available:
                 motor_vel = self.pid.compute(self.pos_cmd, self.fb) * ACT_TO_MOTOR_RATIO[self.idx]
                 vel_cmd_to_buffer = motor_vel / ACT_TO_MOTOR_RATIO[self.idx]
+
+            else:
+                # No ADC → no position control
+                motor_vel = 0.0
+                vel_cmd_to_buffer = 0.0
 
             # Apply velocity to stepper
             self.stepper.set_velocity(motor_vel)
@@ -86,11 +91,13 @@ class Actuator(threading.Thread):
     # Set position command
     # --------------------------
     def set_position(self, deg):
+        if not self.position_control_available:
+            print(f"Actuator {self.idx}: Position control not available (no ADC).")
+            return
+
         lim = ACT_SOFT_LIMITS[self.idx]
         self.pos_cmd = max(lim["min"], min(lim["max"], deg))
-        if deg > lim["max"] or deg < lim["min"]:
-            print(f"Actuator {self.idx} position command {deg}° out of limits, modified to {self.pos_cmd}°")
-        self.vel_cmd_input = None  # PID will generate vel_cmd
+        self.vel_cmd_input = None
 
     # --------------------------
     # Set velocity command directly
