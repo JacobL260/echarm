@@ -19,10 +19,10 @@ try:
         delay = 1.0 / abs(speed)
 
         lgpio.gpio_write(h, STEP_PIN, 1)
-        time.sleep(0.0001)   # 10µs pulse width
+        time.sleep(0.001)   # 10µs pulse width
         lgpio.gpio_write(h, STEP_PIN, 0)
 
-        time.sleep(max(delay - 0.00001, 0))
+        time.sleep(max(delay - 0.001, 0))
 
 except KeyboardInterrupt:
     print("Stopping motor...")
