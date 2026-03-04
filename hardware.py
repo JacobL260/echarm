@@ -102,67 +102,76 @@ class ADCReader(threading.Thread):
         return [ch.voltage for ch in self.channels]
 
 class Stepper:
-    """TB6600 stepper driver using pigpio waveforms (any GPIO pin)"""
+    """Stepper motor controlled via TB6600 using STEP/DIR with velocity control"""
 
-    MAX_SPEED = 1000  # steps per second
+    MAX_SPEED = 1000.0  # steps per second
 
     def __init__(self, idx, pins=None):
         self.idx = idx
-        self.velocity = 0
-        self.wave_id = None
+        self.pos_steps = 0.0
+        self.velocity = 0.0
+        self.running = False
+        self._thread = None
 
         if pins is None:
             pins = STEPPER_PINS[idx]
 
         self.step_pin, self.dir_pin = pins
 
-        self.pi = pigpio.pi()
-        if not self.pi.connected:
-            raise RuntimeError("pigpio daemon not running")
-
-        self.pi.set_mode(self.step_pin, pigpio.OUTPUT)
-        self.pi.set_mode(self.dir_pin, pigpio.OUTPUT)
+        if ON_PI:
+            from gpiozero import OutputDevice
+            self.step = OutputDevice(self.step_pin)
+            self.dir = OutputDevice(self.dir_pin)
+        else:
+            self.step = None
+            self.dir = None
 
     def set_velocity(self, steps_per_sec):
-        """Set constant velocity in steps/sec"""
-
+        """Set velocity in steps/sec, clamped to ±MAX_SPEED."""
         v = max(-self.MAX_SPEED, min(self.MAX_SPEED, float(steps_per_sec)))
         self.velocity = v
 
-        # Stop existing waveform
-        self.stop()
+        if ON_PI and self.dir:
+            self.dir.value = 1 if v > 0 else 0
 
-        if v == 0:
-            return
-
-        # Set direction
-        self.pi.write(self.dir_pin, 1 if v > 0 else 0)
-
-        freq = abs(v)
-        period_us = int(1_000_000 / freq)
-        half_period = period_us // 2
-
-        pulses = [
-            pigpio.pulse(1 << self.step_pin, 0, half_period),
-            pigpio.pulse(0, 1 << self.step_pin, half_period)
-        ]
-
-        self.pi.wave_add_generic(pulses)
-        self.wave_id = self.pi.wave_create()
-
-        self.pi.wave_send_repeat(self.wave_id)
+    def start(self):
+        """Start the velocity control thread."""
+        if not self.running and not stop_event.is_set():
+            self.running = True
+            self._thread = threading.Thread(target=self._run_velocity, daemon=True)
+            self._thread.start()
 
     def stop(self):
-        """Stop motor"""
-        self.pi.wave_tx_stop()
+        """Stop the motor completely."""
+        self.running = False
+        self.velocity = 0.0
+        if self._thread:
+            self._thread.join(timeout=0.5)
+            self._thread = None
 
-        if self.wave_id is not None:
-            self.pi.wave_delete(self.wave_id)
-            self.wave_id = None
+    def stop_velocity(self):
+        """Stop motor movement but keep thread alive."""
+        self.velocity = 0.0
 
-    def cleanup(self):
-        self.stop()
-        self.pi.stop()
+    def _run_velocity(self):
+        """Thread loop to generate step pulses according to velocity."""
+        last_time = time.perf_counter()
+        while self.running and not stop_event.is_set():
+            v = abs(self.velocity)
+            if v > 0:
+                step_interval = 1.0 / v  # seconds per step
+                now = time.perf_counter()
+                if now - last_time >= step_interval:
+                    last_time = now
+                    if ON_PI and self.step:
+                        # generate a short STEP pulse
+                        self.step.on()
+                        self.step.off()
+                    # update logical position
+                    self.pos_steps += 1 if self.velocity > 0 else -1
+            else:
+                # Sleep a tiny bit to avoid busy waiting when velocity=0
+                time.sleep(0.001)
 
 class Button(threading.Thread):
     """Button that updates its state, with optional simulation."""
