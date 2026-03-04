@@ -14,7 +14,7 @@ lgpio.gpio_claim_output(h, DIR_PIN)
 # set direction
 lgpio.gpio_write(h, DIR_PIN, 1)   # 1 = clockwise, 0 = counterclockwise
 
-steps = 200
+steps = 20000000000
 delay = 0.001   # controls speed
 
 print("Running stepper...")
