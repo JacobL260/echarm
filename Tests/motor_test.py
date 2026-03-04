@@ -1,61 +1,35 @@
+import RPi.GPIO as GPIO
 import time
-from gpiozero import OutputDevice
 
-# ======================
-# CONFIG — CHANGE THESE
-# ======================
-STEP_PIN = 23   # GPIO pin connected to STEP+
-DIR_PIN  = 24   # GPIO pin connected to DIR+
-ENABLE_PIN = None  # Optional: set GPIO number or leave as None
+# Pin setup
+STEP_PIN = 5
+DIR_PIN = 6
 
-STEPS_PER_SECOND = 500   # Speed (adjust slower/faster)
-RUN_TIME = 3.0           # Seconds per direction
-# ======================
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(STEP_PIN, GPIO.OUT)
+GPIO.setup(DIR_PIN, GPIO.OUT)
 
+GPIO.output(DIR_PIN, GPIO.HIGH)  # Set direction
 
-# GPIO setup
-step = OutputDevice(STEP_PIN)
-dir = OutputDevice(DIR_PIN)
-
-if ENABLE_PIN is not None:
-    enable = OutputDevice(ENABLE_PIN)
-    enable.off()  # TB6600 usually enables when LOW
-else:
-    enable = None
-
-
-def step_motor(steps, delay):
+def step_motor(delay, steps):
     for _ in range(steps):
-        step.on()
-        time.sleep(delay / 2)
-        step.off()
-        time.sleep(delay / 2)
-
+        GPIO.output(STEP_PIN, GPIO.HIGH)
+        time.sleep(delay)
+        GPIO.output(STEP_PIN, GPIO.LOW)
+        time.sleep(delay)
 
 try:
-    print("Stepper test running. Ctrl+C to stop.")
-
-    delay = 1.0 / STEPS_PER_SECOND
-    steps = int(STEPS_PER_SECOND * RUN_TIME)
-
     while True:
-        print("Direction: FORWARD")
-        dir.on()   # HIGH = forward (depends on wiring)
-        step_motor(steps, delay)
+        # Accelerate
+        for delay in [0.005, 0.003, 0.002, 0.0015, 0.001]:
+            step_motor(delay, 200)
 
-        time.sleep(1)
-
-        print("Direction: REVERSE")
-        dir.off()  # LOW = reverse
-        step_motor(steps, delay)
-
-        time.sleep(1)
+        # Decelerate
+        for delay in [0.0015, 0.002, 0.003, 0.005]:
+            step_motor(delay, 200)
 
 except KeyboardInterrupt:
-    print("\nStopping stepper test.")
+    print("Stopping motor")
 
 finally:
-    step.off()
-    dir.off()
-    if enable:
-        enable.on()
+    GPIO.cleanup()
