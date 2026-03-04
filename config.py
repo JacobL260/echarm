@@ -27,7 +27,12 @@ POT_ZERO_OFFSETS = [0, 0, 0, 0, 0, 0]
 # Indiviudal actuators in the robot settings
 ACT_SOFT_LIMITS = [
     {"min": -60, "max": 60},
-] * NUM_AXES
+    {"min": -60, "max": 60},
+    {"min": -60, "max": 60},
+    {"min": -60, "max": 60},
+    {"min": -60, "max": 60},
+    {"min": -60, "max": 60},
+]
 
 ACT_TO_POT_RATIO = [-1, -1, -1, -39/27, -1, -39/27]
 
@@ -35,7 +40,12 @@ ACT_TO_MOTOR_RATIO = [1, -39, -39, -23, -39, -23]
 
 PID_PARAMS = [
     {"kp": 0.6, "ki": 0.05, "kd": 0.0},
-] * NUM_AXES
+    {"kp": 0.6, "ki": 0.05, "kd": 0.0},
+    {"kp": 0.6, "ki": 0.05, "kd": 0.0},
+    {"kp": 0.6, "ki": 0.05, "kd": 0.0},
+    {"kp": 0.6, "ki": 0.05, "kd": 0.0},
+    {"kp": 0.6, "ki": 0.05, "kd": 0.0}
+]
 
 # DH parameters: [a, alpha, d, theta]
 # theta will be replaced by joint variables
@@ -80,4 +90,4 @@ BUTTON_PINS = [
     21   
 ]
 
-MAX_VEL = 5
+MAX_VEL = 1000
