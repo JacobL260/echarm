@@ -1,4 +1,7 @@
 import time
+import sys
+import select
+import threading
 
 from config import NUM_AXES, MAIN_STATUS_HZ, BUTTON_PINS
 from hardware import stop_event, ADCReader, Button
@@ -18,6 +21,14 @@ def main():
     # Create and start ADC Reader
     adc_reader = ADCReader()
     adc_reader.start()
+
+    # Start command interface thread
+    cmd_thread = threading.Thread(
+        target=command_interface,
+        args=(actuators,),
+        daemon=True
+    )
+    cmd_thread.start()
 
     # Create and start Actuators
     actuators = [Actuator(i, adc_reader) for i in range(NUM_AXES)]
@@ -74,6 +85,74 @@ def main():
     for btn in buttons:
         btn.join(timeout=1.0)
     print("All threads stopped.")
+
+def command_interface(actuators):
+    print("\nCommand interface ready.")
+    print("Commands:")
+    print("  v <idx> <vel>   → set velocity")
+    print("  p <idx> <deg>   → set position")
+    print("  stop            → zero all velocities")
+    print("  exit            → stop program\n")
+
+    while not stop_event.is_set():
+
+        # Non-blocking stdin check (works over SSH)
+        if select.select([sys.stdin], [], [], 0.1)[0]:
+            line = sys.stdin.readline().strip()
+            parts = line.split()
+
+            if not parts:
+                continue
+
+            cmd = parts[0].lower()
+
+            try:
+                # --------------------------
+                # Velocity command
+                # --------------------------
+                if cmd == "v" and len(parts) == 3:
+                    idx = int(parts[1])
+                    vel = float(parts[2])
+
+                    if 0 <= idx < len(actuators):
+                        actuators[idx].set_velocity(vel)
+                        print(f"[CMD] Actuator {idx} velocity → {vel}")
+                    else:
+                        print("Invalid actuator index")
+
+                # --------------------------
+                # Position command
+                # --------------------------
+                elif cmd == "p" and len(parts) == 3:
+                    idx = int(parts[1])
+                    pos = float(parts[2])
+
+                    if 0 <= idx < len(actuators):
+                        actuators[idx].set_position(pos)
+                        print(f"[CMD] Actuator {idx} position → {pos}")
+                    else:
+                        print("Invalid actuator index")
+
+                # --------------------------
+                # Stop all
+                # --------------------------
+                elif cmd == "stop":
+                    for act in actuators:
+                        act.set_velocity(0)
+                    print("[CMD] All actuators stopped")
+
+                # --------------------------
+                # Exit program
+                # --------------------------
+                elif cmd == "exit":
+                    print("Stopping program...")
+                    stop_event.set()
+
+                else:
+                    print("Unknown command")
+
+            except ValueError:
+                print("Invalid command format")
 
 if __name__ == "__main__":
     main()

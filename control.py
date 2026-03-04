@@ -96,4 +96,5 @@ class Actuator(threading.Thread):
     # Set velocity command directly
     # --------------------------
     def set_velocity(self, vel):
+        vel = max(-MAX_VEL, min(MAX_VEL, vel))
         self.vel_cmd_input = vel  # bypass PID

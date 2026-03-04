@@ -79,3 +79,5 @@ BUTTON_PINS = [
     20,
     21   
 ]
+
+MAX_VEL = 5
