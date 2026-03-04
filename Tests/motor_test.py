@@ -1,71 +1,45 @@
 import lgpio
-from time import sleep
+import time
 
-# Direction pin from controller
-DIR = 6
+# --- Configuration ---
+PUL_PIN = 5  # Step pin
+DIR_PIN = 6  # Direction pin
 
-# Step pin from controller
-STEP = 5
+# Speed settings (smaller delay = faster speed)
+STEP_DELAY = 0.0005 
 
-# 0/1 used to signify clockwise or counterclockwise
-CW = 1
-CCW = 0
-
-steps = 200        # 200 steps = 360 degrees (depends on driver)
-speed = 0.0005     # delay between steps
-
-# Open GPIO chip
+# Open the gpiochip (Pi 5 usually uses chip 0)
 h = lgpio.gpiochip_open(0)
 
-# Claim pins as outputs
-lgpio.gpio_claim_output(h, DIR)
-lgpio.gpio_claim_output(h, STEP)
+# Setup pins as outputs
+lgpio.gpio_claim_output(h, PUL_PIN)
+lgpio.gpio_claim_output(h, DIR_PIN)
 
-# Set initial direction
-lgpio.gpio_write(h, DIR, CW)
+def move_stepper(steps, direction, delay):
+    # Set Direction: 1 for CW, 0 for CCW
+    lgpio.gpio_write(h, DIR_PIN, direction)
+    
+    
+    for _ in range(steps):
+        lgpio.gpio_write(h, PUL_PIN, 1)
+        time.sleep(delay)
+        lgpio.gpio_write(h, PUL_PIN, 0)
+        time.sleep(delay)
+    
+    # Disable driver to save power/heat (optional)
 
 try:
-    # Run forever
-    while True:
+    print("Moving Forward...")
+    move_stepper(800, 1, STEP_DELAY) # 800 steps (assuming 1/4 microstepping)
+    
+    time.sleep(1)
+    
+    print("Moving Backward...")
+    move_stepper(800, 0, STEP_DELAY)
 
-        """
-        Change Direction: Changing direction requires time to switch.
-        The time is dictated by the stepper motor and controller.
-        """
-
-        sleep(1.0)
-
-        # Set clockwise direction
-        lgpio.gpio_write(h, DIR, CW)
-
-        # Run for 200 steps
-        for x in range(steps):
-
-            # Set step high
-            lgpio.gpio_write(h, STEP, 1)
-
-            # Motor speed control
-            sleep(speed)
-
-            # Set step low
-            lgpio.gpio_write(h, STEP, 0)
-
-            sleep(speed)
-
-        sleep(1.0)
-
-        # Change direction
-        lgpio.gpio_write(h, DIR, CCW)
-
-        for x in range(steps):
-
-            lgpio.gpio_write(h, STEP, 1)
-            sleep(speed)
-
-            lgpio.gpio_write(h, STEP, 0)
-            sleep(speed)
-
-# Cleanup on CTRL+C
 except KeyboardInterrupt:
-    print("cleanup")
+    print("\nStopping...")
+
+finally:
+    # Cleanup
     lgpio.gpiochip_close(h)
