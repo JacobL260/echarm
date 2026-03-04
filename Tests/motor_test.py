@@ -1,35 +1,34 @@
-import RPi.GPIO as GPIO
+import lgpio
 import time
+import math
 
-# Pin setup
 STEP_PIN = 5
 DIR_PIN = 6
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(STEP_PIN, GPIO.OUT)
-GPIO.setup(DIR_PIN, GPIO.OUT)
+# Open GPIO chip (Pi 5 usually uses gpiochip4)
+h = lgpio.gpiochip_open(4)
 
-GPIO.output(DIR_PIN, GPIO.HIGH)  # Set direction
-
-def step_motor(delay, steps):
-    for _ in range(steps):
-        GPIO.output(STEP_PIN, GPIO.HIGH)
-        time.sleep(delay)
-        GPIO.output(STEP_PIN, GPIO.LOW)
-        time.sleep(delay)
+lgpio.gpio_claim_output(h, STEP_PIN)
+lgpio.gpio_claim_output(h, DIR_PIN)
 
 try:
-    while True:
-        # Accelerate
-        for delay in [0.005, 0.003, 0.002, 0.0015, 0.001]:
-            step_motor(delay, 200)
+    lgpio.gpio_write(h, DIR_PIN, 1)  # Set direction
 
-        # Decelerate
-        for delay in [0.0015, 0.002, 0.003, 0.005]:
-            step_motor(delay, 200)
+    while True:
+        # Smooth varying speed using sine wave
+        t = time.time()
+        speed = 200 + 180 * math.sin(t)   # steps/sec (20–380 range approx)
+        delay = 1.0 / abs(speed)
+
+        # Step pulse
+        lgpio.gpio_write(h, STEP_PIN, 1)
+        time.sleep(delay / 2)
+        lgpio.gpio_write(h, STEP_PIN, 0)
+        time.sleep(delay / 2)
 
 except KeyboardInterrupt:
-    print("Stopping motor")
+    print("Stopping motor...")
 
 finally:
-    GPIO.cleanup()
+    lgpio.gpio_write(h, STEP_PIN, 0)
+    lgpio.gpiochip_close(h)
