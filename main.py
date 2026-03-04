@@ -69,7 +69,7 @@ def main():
             if hasattr(fk_thread, "fk_buffer"):
                 robot_state["kinematics"] = fk_thread.fk_buffer.copy()
             
-            print(robot_state["adc_voltages"])
+            # print(robot_state["adc_voltages"])
 
             time.sleep(1.0 / MAIN_STATUS_HZ)
 
