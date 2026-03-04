@@ -102,67 +102,67 @@ class ADCReader(threading.Thread):
         return [ch.voltage for ch in self.channels]
 
 class Stepper:
-    """Stepper motor controlled via TB6600 using STEP/DIR with velocity control"""
+    """TB6600 stepper driver using pigpio waveforms (any GPIO pin)"""
 
-    MAX_SPEED = 1000.0  # steps per second
+    MAX_SPEED = 1000  # steps per second
 
     def __init__(self, idx, pins=None):
         self.idx = idx
-        self.pos_steps = 0.0
-        self.velocity = 0.0
-        self.running = False
+        self.velocity = 0
+        self.wave_id = None
 
         if pins is None:
             pins = STEPPER_PINS[idx]
 
         self.step_pin, self.dir_pin = pins
 
-        if ON_PI:
-            from gpiozero import OutputDevice
-            self.step = OutputDevice(self.step_pin)
-            self.dir = OutputDevice(self.dir_pin)
-        else:
-            self.step = None
-            self.dir = None
+        self.pi = pigpio.pi()
+        if not self.pi.connected:
+            raise RuntimeError("pigpio daemon not running")
+
+        self.pi.set_mode(self.step_pin, pigpio.OUTPUT)
+        self.pi.set_mode(self.dir_pin, pigpio.OUTPUT)
 
     def set_velocity(self, steps_per_sec):
-        """Set velocity in steps/sec, clamped to ±MAX_SPEED."""
+        """Set constant velocity in steps/sec"""
+
         v = max(-self.MAX_SPEED, min(self.MAX_SPEED, float(steps_per_sec)))
         self.velocity = v
 
-        if ON_PI:
-            if self.dir:
-                self.dir.value = 1 if v > 0 else 0
+        # Stop existing waveform
+        self.stop()
 
-    def start(self):
-        """Start the velocity control thread."""
-        if not self.running and not stop_event.is_set():
-            self.running = True
-            self._thread = threading.Thread(target=self._run_velocity, daemon=True)
-            self._thread.start()
+        if v == 0:
+            return
 
-    def stop_velocity(self):
-        self.velocity = 0.0
+        # Set direction
+        self.pi.write(self.dir_pin, 1 if v > 0 else 0)
 
-    def _run_velocity(self):
-        while self.running and not stop_event.is_set():
-            v = self.velocity
-            if v == 0:
-                time.sleep(0.01)
-                continue
+        freq = abs(v)
+        period_us = int(1_000_000 / freq)
+        half_period = period_us // 2
 
-            delay = 1.0 / abs(v)
-            direction = 1 if v > 0 else -1
+        pulses = [
+            pigpio.pulse(1 << self.step_pin, 0, half_period),
+            pigpio.pulse(0, 1 << self.step_pin, half_period)
+        ]
 
-            if ON_PI and self.step:
-                self.step.on()
-                time.sleep(delay / 2)
-                self.step.off()
-                time.sleep(delay / 2)
-            else:
-                time.sleep(delay)
+        self.pi.wave_add_generic(pulses)
+        self.wave_id = self.pi.wave_create()
 
-            self.pos_steps += direction
+        self.pi.wave_send_repeat(self.wave_id)
+
+    def stop(self):
+        """Stop motor"""
+        self.pi.wave_tx_stop()
+
+        if self.wave_id is not None:
+            self.pi.wave_delete(self.wave_id)
+            self.wave_id = None
+
+    def cleanup(self):
+        self.stop()
+        self.pi.stop()
 
 class Button(threading.Thread):
     """Button that updates its state, with optional simulation."""
