@@ -15,7 +15,7 @@ try:
 
     while True:
         t = time.time()
-        speed = 300 + 250 * math.sin(t)
+        speed = 1000
         delay = 1.0 / abs(speed)
 
         lgpio.gpio_write(h, STEP_PIN, 1)
