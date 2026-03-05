@@ -23,10 +23,10 @@ def stepper_step(delay, steps, direction):
 
 try:
     while True:
-        stepper_step(0.001, 200, 1)  # Forward
+        stepper_step(0.001, 200000, 1)  # Forward
         time.sleep(1)
 
-        stepper_step(0.001, 200, 0)  # Reverse
+        stepper_step(0.001, 200000, 0)  # Reverse
         time.sleep(1)
 
 except KeyboardInterrupt:
