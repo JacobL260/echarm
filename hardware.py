@@ -157,7 +157,7 @@ class Stepper:
         """Thread loop to generate step pulses according to velocity."""
         last_time = time.perf_counter()
         while self.running and not stop_event.is_set():
-            v = abs(self.velocity)
+            v = abs(self.velocity) # steps per second
             if v > 0:
                 step_interval = 1.0 / v  # seconds per step
                 now = time.perf_counter()

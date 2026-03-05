@@ -15,7 +15,7 @@ lgpio.gpio_claim_output(h, DIR_PIN)
 def pulse(delay):
     """Sends a single pulse to the TB6600"""
     lgpio.gpio_write(h, STEP_PIN, 1)
-    time.sleep(0.00002) # 20 microsecond pulse width for stability
+    time.sleep(0.0002) 
     lgpio.gpio_write(h, STEP_PIN, 0)
     time.sleep(delay)
 
